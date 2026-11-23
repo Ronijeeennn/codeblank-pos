@@ -75,7 +75,7 @@
     </form>
 
     <aside class="receipt" aria-live="polite">
-        <div class="head"><b>Tindahan</b><span>Sale preview</span></div>
+        <div class="head"><b>Code Blank</b><span>Sale preview</span></div>
         <p id="r-empty" class="idle">Choose a product to start the receipt.</p>
         <div id="r-body" hidden>
             <dl>

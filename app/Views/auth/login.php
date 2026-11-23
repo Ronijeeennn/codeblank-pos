@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sign in - Tindahan POS</title>
+    <title>Sign in - Code Blank POS</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffb400'/%3E%3Cpath d='M6 12l2-6h16l2 6a3.5 3.5 0 0 1-7 0 3.5 3.5 0 0 1-7 0 3.5 3.5 0 0 1-7 0z M8 16h16v10H8z' fill='%23121b3f'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
         <div class="inner">
             <div class="logo"><?= icon('store', 28) ?></div>
             <h1>Ring up the sale. Keep the shelf honest.</h1>
-            <p>Tindahan POS tracks every sale against your stock, so what's on screen is what's on the shelf.</p>
+            <p>Code Blank POS tracks every sale against your stock, so what's on screen is what's on the shelf.</p>
             <ul>
                 <li><?= icon('receipt') ?>Record a sale in a few taps</li>
                 <li><?= icon('box') ?>Stock drops automatically, and never below zero</li>
