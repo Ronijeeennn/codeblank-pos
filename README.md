@@ -3,7 +3,7 @@
 A Point-of-Sale system built with **CodeIgniter 4** for IT0049 (Web System Technologies).
 Staff sign in, manage products, customers and staff accounts, record sales that reduce stock, and review the sales history.
 
-- **Live site:** _add your hosted URL here_
+- **Live site:** https://ronijen.infinityfreeapp.com/codeblank-pos/
 - **Demo login:** `admin` / `admin12345` (also `cashier` / `cashier123`). Change these after the first login.
 
 ## Features
