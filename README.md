@@ -1,4 +1,4 @@
-# Tindahan POS
+# Code Blank POS
 
 A Point-of-Sale system built with **CodeIgniter 4** for IT0049 (Web System Technologies).
 Staff sign in, manage products, customers and staff accounts, record sales that reduce stock, and review the sales history.
