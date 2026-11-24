@@ -31,13 +31,76 @@ class SaleModel extends Model
             ->orderBy('sales.id', 'DESC');
     }
 
+    /**
+     * One checkout = every `sales` row sharing the same created_at, staff member and customer
+     * (recordMany() writes them together). These helpers show a checkout as ONE entry with its products inside.
+     */
+    private function groupedQuery(): self
+    {
+        return $this->select('created_at, sold_by, customer_id, MIN(id) AS first_id, MAX(id) AS last_id, COUNT(*) AS line_count, SUM(quantity) AS units, SUM(total_price) AS total', false)
+            ->groupBy('created_at, sold_by, customer_id')
+            ->orderBy('created_at', 'DESC')
+            ->orderBy('first_id', 'DESC');
+    }
+
+    /** Add each checkout's product lines (and staff/customer names) to the grouped rows. */
+    private function attachLines(array $groups): array
+    {
+        if ($groups === []) {
+            return [];
+        }
+
+        $lines = $this->withDetails()
+            ->where('sales.created_at >=', min(array_column($groups, 'created_at')))
+            ->where('sales.created_at <=', max(array_column($groups, 'created_at')))
+            ->findAll();
+
+        usort($lines, static fn (array $a, array $b): int => (int) $a['id'] <=> (int) $b['id']);
+
+        $key = static fn (array $r): string => $r['created_at'] . '|' . $r['sold_by'] . '|' . ($r['customer_id'] ?? '');
+        $by  = [];
+
+        foreach ($lines as $line) {
+            $by[$key($line)][] = $line;
+        }
+
+        foreach ($groups as &$group) {
+            $group['lines']         = $by[$key($group)] ?? [];
+            $group['customer_name'] = $group['lines'][0]['customer_name'] ?? null;
+            $group['staff_name']    = $group['lines'][0]['staff_name'] ?? '';
+            $group['staff_avatar']  = $group['lines'][0]['staff_avatar'] ?? null;
+        }
+        unset($group);
+
+        return $groups;
+    }
+
+    /** One page of checkouts, newest first. Use $model->pager afterwards for the page links. */
+    public function checkoutsPage(int $perPage = 15): array
+    {
+        return $this->attachLines($this->groupedQuery()->paginate($perPage));
+    }
+
+    public function latestCheckouts(int $limit = 5): array
+    {
+        return $this->attachLines($this->groupedQuery()->findAll($limit));
+    }
+
+    public function countCheckouts(?string $since = null): int
+    {
+        $sql = 'SELECT COUNT(*) AS n FROM (SELECT 1 FROM sales' . ($since !== null ? ' WHERE created_at >= ?' : '')
+            . ' GROUP BY created_at, sold_by, customer_id) AS checkouts';
+
+        return (int) $this->db->query($sql, $since !== null ? [$since] : [])->getRow()->n;
+    }
+
     /** Revenue and number of sales since a datetime (dashboard "today"). */
     public function totalsSince(string $since): array
     {
-        $row = $this->builder()->select('COALESCE(SUM(total_price), 0) AS total, COUNT(*) AS n', false)
+        $row = $this->builder()->select('COALESCE(SUM(total_price), 0) AS total', false)
             ->where('created_at >=', $since)->get()->getRow();
 
-        return ['total' => (float) $row->total, 'count' => (int) $row->n];
+        return ['total' => (float) $row->total, 'count' => $this->countCheckouts($since)];
     }
 
     /** Revenue per day for the last $days days (oldest first), zero-filled for quiet days. */

@@ -23,10 +23,10 @@ class Dashboard extends BaseController
             'productCount'  => model(ProductModel::class)->countAllResults(),
             'customerCount' => model(CustomerModel::class)->countAllResults(),
             'staffCount'    => model(UserModel::class)->countAllResults(),
-            'salesCount'    => $sales->countAllResults(),
+            'salesCount'    => $sales->countCheckouts(),
             'revenue'       => $sales->revenue(),
             'lowStock'      => model(ProductModel::class)->lowStock(),
-            'recentSales'   => model(SaleModel::class)->withDetails()->findAll(5),
+            'recentSales'   => $sales->latestCheckouts(5),
         ]);
     }
 }

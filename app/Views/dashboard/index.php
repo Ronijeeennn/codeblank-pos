@@ -102,13 +102,14 @@ $topMax    = max(1, ...(array_column($topProducts, 'units') ?: [1]));
         <?php else: ?>
             <ul class="list">
                 <?php foreach ($recentSales as $s): ?>
+                    <?php $first = $s['lines'][0]; $more = count($s['lines']) - 1; ?>
                     <li>
-                        <?= view('partials/thumb', ['file' => $s['product_image'], 'name' => $s['product_name']]) ?>
+                        <?= view('partials/thumb', ['file' => $first['product_image'], 'name' => $first['product_name']]) ?>
                         <div class="grow">
-                            <div class="t"><?= (int) $s['quantity'] ?> &times; <?= esc($s['product_name']) ?></div>
+                            <div class="t"><?= (int) $first['quantity'] ?> &times; <?= esc($first['product_name']) ?><?= $more > 0 ? ' <span class="muted">+ ' . $more . ' more</span>' : '' ?></div>
                             <small class="muted"><?= esc(fmt_date($s['created_at'])) ?></small>
                         </div>
-                        <span class="money"><?= money($s['total_price']) ?></span>
+                        <span class="money"><?= money($s['total']) ?></span>
                     </li>
                 <?php endforeach ?>
             </ul>

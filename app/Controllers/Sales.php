@@ -91,10 +91,10 @@ class Sales extends BaseController
     {
         $sales   = model(SaleModel::class);
         $revenue = $sales->revenue();
-        $count   = $sales->countAllResults();
+        $count   = $sales->countCheckouts();
 
         return view('sales/index', [
-            'sales'   => $sales->withDetails()->paginate(15),
+            'checkouts' => $sales->checkoutsPage(15),
             'pager'   => $sales->pager,
             'revenue' => $revenue,
             'count'   => $count,

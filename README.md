@@ -15,7 +15,7 @@ Staff sign in, manage products, customers and staff accounts, record sales that 
 | Customers | Full CRUD with search. Deleting a customer keeps their past sales (they become "Walk-in"). |
 | Staff | Full CRUD, hashed passwords, avatar upload cropped to 200x200. Blank password on edit keeps the current one. |
 | Record Sale | Tap several product tiles, set each quantity, optional customer. One checkout can hold many products and is all-or-nothing. Live receipt preview. Stock drops by the quantity sold; a sale for more than is in stock is **rejected** with a message such as *"you asked for 50 but only 11 of Chicken Sandwich are in stock"*. |
-| Sales History | Paginated list: sale #, date, product, customer (or Walk-in), staff member, quantity, total. |
+| Sales History | One row per checkout (a multi-product sale shows all its products in one row): sale #, date, products, customer (or Walk-in), staff member, quantity, total. | |
 | Dashboard | Today's sales, 7-day sales chart, top sellers, low-stock list, latest sales. |
 
 ## Design
