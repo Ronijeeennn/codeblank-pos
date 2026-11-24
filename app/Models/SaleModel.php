@@ -84,53 +84,81 @@ class SaleModel extends Model
     }
 
     /**
-     * Record a sale and reduce stock in one transaction.
+     * Record one checkout with several products, reducing stock, in a single transaction.
+     * Each product becomes its own row in `sales` (that is how the schema stores a sale), and all rows
+     * of one checkout share the same created_at. If ANY product is short on stock, nothing is recorded.
      *
-     * The stock check and the decrement are a single conditional UPDATE, so two cashiers
-     * selling the last units at the same moment can never push stock below zero.
+     * Stock is reduced with a conditional UPDATE (... AND stock_quantity >= ?), so two cashiers selling
+     * the last units at the same moment can never push stock below zero.
      *
-     * @return array{error: string}|array{sale_id: int, total: float, product: string, remaining: int}
+     * @param array<int,int> $items product id => quantity (all quantities >= 1)
+     *
+     * @return array{error: string}|array{lines: list<array>, total: float}
      */
-    public function record(int $productId, ?int $customerId, int $staffId, int $quantity): array
+    public function recordMany(array $items, ?int $customerId, int $staffId): array
     {
-        $products = model(ProductModel::class);
-        $product  = $products->find($productId);
-
-        if ($product === null) {
-            return ['error' => 'That product no longer exists.'];
+        if ($items === []) {
+            return ['error' => 'Add at least one product to the sale.'];
         }
+
+        ksort($items); // same lock order for everyone
+
+        $products = model(ProductModel::class);
+        $byId     = array_column($products->whereIn('id', array_keys($items))->findAll(), null, 'id');
+
+        // 1) Check everything first so the message can list every problem at once.
+        $problems = [];
+        foreach ($items as $productId => $quantity) {
+            if (! isset($byId[$productId])) {
+                return ['error' => 'A product in this sale no longer exists. Reload the page and try again.'];
+            }
+
+            $stock = (int) $byId[$productId]['stock_quantity'];
+            if ($stock < $quantity) {
+                $name       = $byId[$productId]['name'];
+                $problems[] = $stock === 0
+                    ? "{$name} is out of stock"
+                    : "you asked for {$quantity} but only {$stock} of {$name} " . ($stock === 1 ? 'is' : 'are') . ' in stock';
+            }
+        }
+
+        if ($problems !== []) {
+            return ['error' => 'Sale rejected: ' . implode('; ', $problems) . (count($items) > 1 ? '. Nothing was recorded.' : '.')];
+        }
+
+        // 2) Record it, all or nothing.
+        $now   = date('Y-m-d H:i:s');
+        $lines = [];
 
         $this->db->transBegin();
 
         try {
-            $this->db->query(
-                'UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ? AND stock_quantity >= ?',
-                [$quantity, $productId, $quantity],
-            );
+            foreach ($items as $productId => $quantity) {
+                $product = $byId[$productId];
 
-            if ($this->db->affectedRows() !== 1) {
-                $this->db->transRollback();
-                $left = (int) ($products->find($productId)['stock_quantity'] ?? 0);
+                $this->db->query(
+                    'UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ? AND stock_quantity >= ?',
+                    [$quantity, $productId, $quantity],
+                );
 
-                return ['error' => $left === 0
-                    ? "Sale rejected: {$product['name']} is out of stock."
-                    : "Sale rejected: you asked for {$quantity} but only {$left} of {$product['name']} "
-                        . ($left === 1 ? 'is' : 'are') . ' in stock.'];
-            }
+                if ($this->db->affectedRows() !== 1) { // someone else sold it between the check and now
+                    $this->db->transRollback();
 
-            $total  = round((float) $product['price'] * $quantity, 2);
-            $saleId = $this->insert([
-                'product_id'  => $productId,
-                'customer_id' => $customerId,
-                'sold_by'     => $staffId,
-                'quantity'    => $quantity,
-                'total_price' => $total,
-            ]);
+                    return ['error' => "Sale rejected: stock for {$product['name']} just changed. Nothing was recorded, please try again."];
+                }
 
-            if ($saleId === false) {
-                $this->db->transRollback();
+                $total = round((float) $product['price'] * $quantity, 2);
 
-                return ['error' => 'The sale could not be saved. Stock was not changed.'];
+                $this->builder()->insert([
+                    'product_id'  => $productId,
+                    'customer_id' => $customerId,
+                    'sold_by'     => $staffId,
+                    'quantity'    => $quantity,
+                    'total_price' => $total,
+                    'created_at'  => $now,
+                ]);
+
+                $lines[] = ['sale_id' => (int) $this->db->insertID(), 'product_id' => $productId, 'product' => $product['name'], 'quantity' => $quantity, 'total' => $total];
             }
 
             $this->db->transCommit();
@@ -141,11 +169,31 @@ class SaleModel extends Model
             return ['error' => 'The sale could not be saved. Stock was not changed.'];
         }
 
-        return [
-            'sale_id'   => (int) $saleId,
-            'total'     => $total,
-            'product'   => $product['name'],
-            'remaining' => (int) $products->find($productId)['stock_quantity'],
-        ];
+        $fresh = array_column($products->whereIn('id', array_keys($items))->findAll(), null, 'id');
+
+        foreach ($lines as &$line) {
+            $line['remaining'] = (int) $fresh[$line['product_id']]['stock_quantity'];
+        }
+        unset($line);
+
+        return ['lines' => $lines, 'total' => round(array_sum(array_column($lines, 'total')), 2)];
+    }
+
+    /**
+     * Single-product convenience wrapper around recordMany().
+     *
+     * @return array{error: string}|array{sale_id: int, total: float, product: string, remaining: int}
+     */
+    public function record(int $productId, ?int $customerId, int $staffId, int $quantity): array
+    {
+        $result = $this->recordMany([$productId => $quantity], $customerId, $staffId);
+
+        if (isset($result['error'])) {
+            return $result;
+        }
+
+        $line = $result['lines'][0];
+
+        return ['sale_id' => $line['sale_id'], 'total' => $line['total'], 'product' => $line['product'], 'remaining' => $line['remaining']];
     }
 }

@@ -24,10 +24,11 @@
         <table>
             <thead><tr><th>Sale</th><th>Date</th><th>Product</th><th>Customer</th><th>Sold by</th><th class="num">Qty</th><th class="num">Total</th></tr></thead>
             <tbody>
-            <?php foreach ($sales as $s): ?>
-                <tr>
+            <?php $prev = null; foreach ($sales as $s): ?>
+                <?php $cont = $prev && $prev['created_at'] === $s['created_at'] && $prev['sold_by'] === $s['sold_by'] && $prev['customer_id'] === $s['customer_id']; $prev = $s; ?>
+                <tr<?= $cont ? ' class="cont"' : '' ?>>
                     <td class="mono muted">#<?= (int) $s['id'] ?></td>
-                    <td><?= esc(date('M j, Y', strtotime($s['created_at']))) ?><small class="muted" style="display:block"><?= esc(date('g:i A', strtotime($s['created_at']))) ?></small></td>
+                    <td><?php if ($cont): ?><small class="muted">same sale</small><?php else: ?><?= esc(date('M j, Y', strtotime($s['created_at']))) ?><small class="muted" style="display:block"><?= esc(date('g:i A', strtotime($s['created_at']))) ?></small><?php endif ?></td>
                     <td><div class="cell"><?= view('partials/thumb', ['file' => $s['product_image'], 'name' => $s['product_name']]) ?><?= esc($s['product_name']) ?></div></td>
                     <td><?= $s['customer_name'] ? esc($s['customer_name']) : '<span class="muted">Walk-in</span>' ?></td>
                     <td><div class="cell"><?= view('partials/avatar', ['file' => $s['staff_avatar'], 'name' => $s['staff_name']]) ?><?= esc($s['staff_name']) ?></div></td>

@@ -2,15 +2,15 @@
 <?= $this->section('title') ?>Record sale<?= $this->endSection() ?>
 <?= $this->section('content') ?>
 <div class="page-head">
-    <div><h1>Record sale</h1><p>Tap a product, set the quantity, and record it.</p></div>
+    <div><h1>Record sale</h1><p>Tap products to add them to the sale, then adjust the quantities.</p></div>
 </div>
 
-<div class="sale-layout">
-    <form id="sale-form" method="post" action="<?= site_url('sales') ?>">
-        <?= csrf_field() ?>
+<form class="sale-layout" id="sale-form" method="post" action="<?= site_url('sales') ?>">
+    <?= csrf_field() ?>
 
+    <div>
         <fieldset class="step">
-            <legend>1. Choose a product</legend>
+            <legend>1. Choose products</legend>
             <div class="picker-tools">
                 <div class="search" style="max-width:none">
                     <?= icon('search', 16) ?>
@@ -20,32 +20,34 @@
             <div class="picker" id="picker">
                 <?php foreach ($products as $p): ?>
                     <?php $stock = (int) $p['stock_quantity']; ?>
-                    <label class="pick" data-name="<?= esc(mb_strtolower($p['name']), 'attr') ?>">
-                        <input type="radio" name="product_id" value="<?= (int) $p['id'] ?>" required
-                               data-name="<?= esc($p['name'], 'attr') ?>" data-price="<?= esc($p['price'], 'attr') ?>" data-stock="<?= $stock ?>"
-                               <?= (string) old('product_id') === (string) $p['id'] ? 'checked' : '' ?>
-                               <?= $stock === 0 ? 'disabled' : '' ?>>
-                        <span class="card">
+                    <div class="pick<?= $stock === 0 ? ' off' : '' ?>" data-name="<?= esc(mb_strtolower($p['name']), 'attr') ?>"
+                         data-label="<?= esc($p['name'], 'attr') ?>" data-price="<?= esc($p['price'], 'attr') ?>" data-stock="<?= $stock ?>">
+                        <button type="button" class="card" data-inc <?= $stock === 0 ? 'disabled' : '' ?> aria-label="Add <?= esc($p['name'], 'attr') ?>">
                             <span class="pic" style="<?= empty($p['image']) ? tint($p['name']) : '' ?>">
                                 <?php if (! empty($p['image'])): ?>
                                     <img src="<?= esc(upload_url('products', $p['image']), 'attr') ?>" alt="" loading="lazy">
                                 <?php else: ?>
                                     <?= esc(initials($p['name'])) ?>
                                 <?php endif ?>
-                                <span class="tick"><?= icon('check', 16) ?></span>
+                                <span class="count" aria-hidden="true">0</span>
                             </span>
                             <span class="meta">
                                 <span class="nm"><?= esc($p['name']) ?></span>
                                 <span class="pr"><?= money($p['price']) ?></span>
                                 <span class="st"><?= $stock === 0 ? 'Out of stock' : $stock . ' in stock' ?></span>
                             </span>
-                        </span>
-                    </label>
+                        </button>
+                        <div class="mini" role="group" aria-label="Quantity of <?= esc($p['name'], 'attr') ?>">
+                            <button type="button" data-dec aria-label="Decrease" <?= $stock === 0 ? 'disabled' : '' ?>><?= icon('minus', 16) ?></button>
+                            <input type="number" name="qty[<?= (int) $p['id'] ?>]" min="0" step="1" inputmode="numeric"
+                                   value="<?= old_value('qty.' . $p['id'], '0') ?>" aria-label="Quantity of <?= esc($p['name'], 'attr') ?>" <?= $stock === 0 ? 'disabled' : '' ?>>
+                            <button type="button" data-inc aria-label="Increase" <?= $stock === 0 ? 'disabled' : '' ?>><?= icon('plus', 16) ?></button>
+                        </div>
+                    </div>
                 <?php endforeach ?>
             </div>
             <p class="muted" id="pick-none" hidden style="margin-top:.8rem">No products match that filter.</p>
             <?php if (! $products): ?><p class="muted">No products yet. <a href="<?= site_url('products/new') ?>">Add one first.</a></p><?php endif ?>
-            <?= validation_show_error('product_id') ?>
         </fieldset>
 
         <div class="step">
@@ -60,72 +62,76 @@
             </select>
             <?= validation_show_error('customer_id') ?>
         </div>
-
-        <div class="step">
-            <label for="quantity">3. Quantity</label>
-            <div class="stepper">
-                <button type="button" data-step="-1" aria-label="Decrease quantity"><?= icon('minus', 18) ?></button>
-                <input type="number" id="quantity" name="quantity" min="1" step="1" required value="<?= old_value('quantity', '1') ?>">
-                <button type="button" data-step="1" aria-label="Increase quantity"><?= icon('plus', 18) ?></button>
-            </div>
-            <?= validation_show_error('quantity') ?>
-        </div>
-
-        <button class="btn accent lg" type="submit"><?= icon('check') ?>Record sale</button>
-    </form>
+    </div>
 
     <aside class="receipt" aria-live="polite">
         <div class="head"><b>Code Blank</b><span>Sale preview</span></div>
-        <p id="r-empty" class="idle">Choose a product to start the receipt.</p>
+        <p id="r-empty" class="idle">Tap a product to start the sale.</p>
         <div id="r-body" hidden>
+            <div id="r-lines"></div>
             <dl>
-                <dt>Item</dt><dd id="r-item"></dd>
-                <dt>Price</dt><dd id="r-price"></dd>
-                <dt>Qty</dt><dd id="r-qty"></dd>
                 <dt>Customer</dt><dd id="r-customer"></dd>
                 <dt>Cashier</dt><dd><?= esc(session('full_name')) ?></dd>
             </dl>
             <div class="total"><span>Total</span><b id="r-total"></b></div>
             <p class="note" id="r-note"></p>
         </div>
+        <button class="btn accent lg block" type="submit" id="r-submit" style="margin-top:1rem"><?= icon('check') ?>Record sale</button>
     </aside>
-</div>
+</form>
 
 <script>
 (function () {
-    var form = document.getElementById('sale-form'), customer = document.getElementById('customer_id'), qty = document.getElementById('quantity'),
-        body = document.getElementById('r-body'), empty = document.getElementById('r-empty');
+    var form = document.getElementById('sale-form'), customer = document.getElementById('customer_id'),
+        body = document.getElementById('r-body'), empty = document.getElementById('r-empty'), lines = document.getElementById('r-lines'),
+        submit = document.getElementById('r-submit'), tiles = [].slice.call(form.querySelectorAll('.pick'));
     var peso = function (n) { return '\u20B1' + n.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2}); };
-    var set = function (id, text) { document.getElementById(id).textContent = text; };
+    var qtyInput = function (tile) { return tile.querySelector('input[type=number]'); };
+    var qtyOf = function (tile) { var n = parseInt(qtyInput(tile).value, 10); return isNaN(n) || n < 0 ? 0 : n; };
+    var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
 
     function render() {
-        var picked = form.querySelector('input[name=product_id]:checked');
-        if (!picked) { body.hidden = true; empty.hidden = false; return; }
-        var price = parseFloat(picked.dataset.price), stock = parseInt(picked.dataset.stock, 10), n = parseInt(qty.value, 10) || 0;
-        body.hidden = false; empty.hidden = true;
-        set('r-item', picked.dataset.name); set('r-price', peso(price)); set('r-qty', n);
-        set('r-customer', customer.value ? customer.options[customer.selectedIndex].dataset.name : 'Walk-in');
-        set('r-total', peso(price * Math.max(n, 0)));
+        var total = 0, count = 0, over = 0;
+        lines.replaceChildren();
+
+        tiles.forEach(function (tile) {
+            var n = qtyOf(tile), price = parseFloat(tile.dataset.price), stock = parseInt(tile.dataset.stock, 10);
+            tile.classList.toggle('on', n > 0);
+            tile.querySelector('.count').textContent = n;
+            if (!n) return;
+
+            count++; total += price * n;
+            var bad = n > stock; if (bad) over++;
+            var row = el('div', 'line' + (bad ? ' bad' : ''));
+            var left = el('div');
+            left.appendChild(el('span', 'ln', tile.dataset.label));
+            left.appendChild(el('small', '', n + ' \u00D7 ' + peso(price) + (bad ? ' (only ' + stock + ' in stock)' : '')));
+            row.appendChild(left);
+            row.appendChild(el('span', 'amt', peso(price * n)));
+            lines.appendChild(row);
+        });
+
+        empty.hidden = count > 0; body.hidden = count === 0; submit.disabled = count === 0;
+        document.getElementById('r-customer').textContent = customer.value ? customer.options[customer.selectedIndex].dataset.name : 'Walk-in';
+        document.getElementById('r-total').textContent = peso(total);
         var note = document.getElementById('r-note');
-        if (n > stock) { note.textContent = 'Only ' + stock + ' in stock. The sale will be rejected.'; note.className = 'note bad'; }
-        else { note.textContent = n > 0 ? (stock - n) + ' will be left in stock.' : ''; note.className = 'note'; }
+        note.textContent = over ? 'Not enough stock for ' + over + (over === 1 ? ' item' : ' items') + '. The sale will be rejected.' : (count > 1 ? count + ' products in this sale.' : '');
+        note.className = 'note' + (over ? ' bad' : '');
     }
 
-    form.addEventListener('input', render);
-    form.addEventListener('change', render);
-    form.querySelectorAll('[data-step]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            qty.value = Math.max(1, (parseInt(qty.value, 10) || 0) + parseInt(btn.dataset.step, 10));
-            render();
-        });
+    form.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-inc], [data-dec]');
+        if (!btn || btn.disabled) return;
+        var tile = btn.closest('.pick'), input = qtyInput(tile);
+        input.value = Math.max(0, qtyOf(tile) + (btn.hasAttribute('data-inc') ? 1 : -1));
+        render();
     });
+    form.addEventListener('input', render);
+    customer.addEventListener('change', render);
 
     document.getElementById('pick-search').addEventListener('input', function (e) {
         var term = e.target.value.trim().toLowerCase(), shown = 0;
-        document.querySelectorAll('#picker .pick').forEach(function (el) {
-            var hit = el.dataset.name.indexOf(term) !== -1;
-            el.hidden = !hit; if (hit) shown++;
-        });
+        tiles.forEach(function (t) { var hit = t.dataset.name.indexOf(term) !== -1; t.hidden = !hit; if (hit) shown++; });
         document.getElementById('pick-none').hidden = shown > 0;
     });
     render();

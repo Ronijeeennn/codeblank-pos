@@ -4,7 +4,7 @@ A Point-of-Sale system built with **CodeIgniter 4** for IT0049 (Web System Techn
 Staff sign in, manage products, customers and staff accounts, record sales that reduce stock, and review the sales history.
 
 - **Live site:** https://ronijen.infinityfreeapp.com/codeblank-pos/
-- **Demo login:** `admin` / `admin12345` (also `cashier` / `cashier123`). Change these after the first login.
+- **Demo login:** `admin` / `admin12345`
 
 ## Features
 
@@ -14,7 +14,7 @@ Staff sign in, manage products, customers and staff accounts, record sales that 
 | Products | Card grid with search, stock filters (all / running low / out of stock) and pagination; add, edit, delete. Optional image upload with live preview, cropped to a 400x400 square. |
 | Customers | Full CRUD with search. Deleting a customer keeps their past sales (they become "Walk-in"). |
 | Staff | Full CRUD, hashed passwords, avatar upload cropped to 200x200. Blank password on edit keeps the current one. |
-| Record Sale | Tap a product tile, optional customer, quantity stepper. Live receipt preview. Stock drops by the quantity sold; a sale for more than is in stock is **rejected** with a message such as *"you asked for 50 but only 11 of Chicken Sandwich are in stock"*. |
+| Record Sale | Tap several product tiles, set each quantity, optional customer. One checkout can hold many products and is all-or-nothing. Live receipt preview. Stock drops by the quantity sold; a sale for more than is in stock is **rejected** with a message such as *"you asked for 50 but only 11 of Chicken Sandwich are in stock"*. |
 | Sales History | Paginated list: sale #, date, product, customer (or Walk-in), staff member, quantity, total. |
 | Dashboard | Today's sales, 7-day sales chart, top sellers, low-stock list, latest sales. |
 

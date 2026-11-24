@@ -67,5 +67,8 @@ class PosSeeder extends Seeder
                 $this->db->table('sales')->where('id', $result['sale_id'])->update(['created_at' => date('Y-m-d H:i:s', $when)]);
             }
         }
+
+        // One checkout with several products (each product is its own row in `sales`).
+        $sales->recordMany([1 => 1, 3 => 2, 5 => 2], 1, 2);
     }
 }
