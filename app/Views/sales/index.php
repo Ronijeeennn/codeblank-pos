@@ -28,7 +28,7 @@
                 <?php $multi = (int) $c['line_count'] > 1; ?>
                 <tr>
                     <td class="mono muted">
-                        #<?= (int) $c['first_id'] ?><?= $multi ? '&ndash;' . (int) $c['last_id'] : '' ?>
+                        #<?= (int) $c['sale_no'] ?>
                         <?php if ($multi): ?><small style="display:block;font-family:var(--sans)"><?= (int) $c['line_count'] ?> products</small><?php endif ?>
                     </td>
                     <td><?= esc(date('M j, Y', strtotime($c['created_at']))) ?><small class="muted" style="display:block"><?= esc(date('g:i A', strtotime($c['created_at']))) ?></small></td>

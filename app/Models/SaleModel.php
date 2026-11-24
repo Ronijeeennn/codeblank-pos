@@ -43,6 +43,23 @@ class SaleModel extends Model
             ->orderBy('first_id', 'DESC');
     }
 
+    /**
+     * Sale number for every checkout: oldest checkout = 1, next = 2, and so on, counting a
+     * multi-product checkout once. Returned as [first row id of the checkout => sale number].
+     * (The database `id` still counts one product line at a time; this is only what people see.)
+     */
+    public function saleNumbers(): array
+    {
+        $rows = $this->db->query('SELECT MIN(id) AS first_id FROM sales GROUP BY created_at, sold_by, customer_id ORDER BY created_at ASC, first_id ASC')->getResultArray();
+        $map  = [];
+
+        foreach ($rows as $i => $row) {
+            $map[(int) $row['first_id']] = $i + 1;
+        }
+
+        return $map;
+    }
+
     /** Add each checkout's product lines (and staff/customer names) to the grouped rows. */
     private function attachLines(array $groups): array
     {
@@ -64,7 +81,10 @@ class SaleModel extends Model
             $by[$key($line)][] = $line;
         }
 
+        $numbers = $this->saleNumbers();
+
         foreach ($groups as &$group) {
+            $group['sale_no']       = $numbers[(int) $group['first_id']] ?? (int) $group['first_id'];
             $group['lines']         = $by[$key($group)] ?? [];
             $group['customer_name'] = $group['lines'][0]['customer_name'] ?? null;
             $group['staff_name']    = $group['lines'][0]['staff_name'] ?? '';

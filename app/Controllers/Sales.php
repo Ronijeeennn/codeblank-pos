@@ -68,13 +68,14 @@ class Sales extends BaseController
             return $this->failSale($result['error']);
         }
 
-        $lines = $result['lines'];
+        $lines  = $result['lines'];
+        $saleNo = model(SaleModel::class)->saleNumbers()[$lines[0]['sale_id']] ?? $lines[0]['sale_id'];
 
         if (count($lines) === 1) {
-            $message = sprintf('Sale #%d recorded: %s total for %s. %d left in stock.', $lines[0]['sale_id'], money($result['total']), $lines[0]['product'], $lines[0]['remaining']);
+            $message = sprintf('Sale #%d recorded: %s total for %s. %d left in stock.', $saleNo, money($result['total']), $lines[0]['product'], $lines[0]['remaining']);
         } else {
             $parts   = array_map(static fn (array $l): string => $l['quantity'] . ' × ' . $l['product'], $lines);
-            $message = sprintf('Sale recorded: %d products, %s total. %s.', count($lines), money($result['total']), implode(', ', $parts));
+            $message = sprintf('Sale #%d recorded: %d products, %s total. %s.', $saleNo, count($lines), money($result['total']), implode(', ', $parts));
         }
 
         return redirect()->to('/sales/new')->with('success', $message);
